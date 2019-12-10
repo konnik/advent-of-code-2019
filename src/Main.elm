@@ -8,6 +8,7 @@ import Day3
 import Dict exposing (Dict)
 import Element exposing (Element, column, el, padding, row, spacing, text)
 import Element.Border as Border
+import Element.Font as Font
 import Element.Input as Input
 import Http
 import Input
@@ -121,13 +122,19 @@ view model =
 mainView : Model -> Element Msg
 mainView model =
     column [ spacing 20 ]
-        [ navigation
+        [ header
+        , navigation
         , text <| "Solution for day " ++ String.fromInt model.day
         , text <| "Part 1: " ++ model.answer1
         , text <| "Part 2: " ++ model.answer2
         , text "Input: "
         , text model.input
         ]
+
+
+header : Element Msg
+header =
+    el [ Font.size 30, Font.bold ] (text "Advent of Code in Elm - 2019")
 
 
 navButton : Int -> Element Msg
