@@ -1,7 +1,16 @@
 module Day3 exposing (..)
 
+import Dict exposing (Dict)
 import Set exposing (Set)
 import Types exposing (Solution, Solver)
+
+
+type alias Wire =
+    List Move
+
+
+type alias Move =
+    ( Direction, Int )
 
 
 type Direction
@@ -12,12 +21,43 @@ type Direction
     | Unknown
 
 
-type alias Move =
-    ( Direction, Int )
-
-
 type alias Pos =
     ( Int, Int )
+
+
+part1 : Solver
+part1 input =
+    parseInput input
+        |> traceWirePositions
+        |> findIntersections
+        |> smallestManhattanDistance
+        |> String.fromInt
+
+
+part2 : Solver
+part2 input =
+    parseInput input
+        |> traceWirePositionsWithSteps
+        |> findIntersectionsWithSteps
+        |> fewestSteps
+        |> String.fromInt
+
+
+parseInput : String -> ( Wire, Wire )
+parseInput input =
+    case String.lines input of
+        [ a, b ] ->
+            ( parseLine a, parseLine b )
+
+        _ ->
+            ( [], [] )
+
+
+parseLine : String -> Wire
+parseLine line =
+    line
+        |> String.split ","
+        |> List.map parseMove
 
 
 parseMove : String -> Move
@@ -43,71 +83,36 @@ parseMove token =
             ( Unknown, 0 )
 
 
-parseLine : String -> List Move
-parseLine line =
-    line
-        |> String.split ","
-        |> List.map parseMove
-
-
-move : Move -> List Pos -> List Pos
-move ( dir, steps ) path =
+traceMove : Move -> ( Pos, Set Pos ) -> ( Pos, Set Pos )
+traceMove ( dir, steps ) ( pos, path ) =
     let
-        ( x, y ) =
-            List.head path |> Maybe.withDefault ( 0, 0 )
-
         nextPos =
-            case dir of
-                Up ->
-                    ( x, y - 1 )
+            takeOneStep dir pos
 
-                Down ->
-                    ( x, y + 1 )
-
-                Left ->
-                    ( x - 1, y )
-
-                Right ->
-                    ( x + 1, y )
-
-                _ ->
-                    ( x, y )
+        nextPath =
+            Set.insert nextPos path
     in
-    if steps == 0 then
-        path
+    if steps == 1 then
+        ( nextPos, nextPath )
 
     else
-        move ( dir, steps - 1 ) (nextPos :: path)
+        traceMove ( dir, steps - 1 ) ( nextPos, nextPath )
 
 
-trace : List Move -> List Pos
-trace moves =
-    List.foldl move [ ( 0, 0 ) ] moves
+traceWire : Wire -> Set Pos
+traceWire moves =
+    let
+        ( _, path ) =
+            List.foldl traceMove ( ( 0, 0 ), Set.empty ) moves
+    in
+    path
 
 
-part1 : Solver
-part1 input =
-    input
-        |> String.lines
-        |> List.map parseLine
-        |> List.map trace
-        |> findIntersections
-        |> List.map manhattan
-        |> List.filter (\x -> x > 0)
-        |> List.sort
-        |> List.head
-        |> Maybe.withDefault -99
-        |> String.fromInt
-
-
-splitLines : String -> ( String, String )
-splitLines input =
-    case String.lines input of
-        [ a, b ] ->
-            ( a, b )
-
-        _ ->
-            ( "", "" )
+countSteps : List Pos -> Dict Pos Int
+countSteps positions =
+    positions
+        |> List.indexedMap (\i pos -> ( pos, i ))
+        |> Dict.fromList
 
 
 manhattan : Pos -> Int
@@ -115,34 +120,104 @@ manhattan ( x, y ) =
     abs x + abs y
 
 
-findIntersections : List (List Pos) -> List Pos
-findIntersections paths =
-    let
-        ( a, b ) =
-            case paths of
-                [ a_, b_ ] ->
-                    ( a_, b_ )
+findIntersections : ( Set Pos, Set Pos ) -> Set Pos
+findIntersections ( a, b ) =
+    Set.intersect a b
 
-                _ ->
-                    ( [], [] )
-    in
-    Set.intersect (Set.fromList a) (Set.fromList b)
+
+smallestManhattanDistance : Set Pos -> Int
+smallestManhattanDistance positions =
+    positions
+        |> Set.map manhattan
+        |> Set.filter (\x -> x > 0)
         |> Set.toList
+        |> List.sort
+        |> List.head
+        |> Maybe.withDefault -99
 
 
-zip : List (List a) -> List ( a, a )
-zip lists =
-    case lists of
-        [ a, b ] ->
-            List.map2 Tuple.pair a b
+traceWirePositions : ( Wire, Wire ) -> ( Set Pos, Set Pos )
+traceWirePositions ( a, b ) =
+    ( traceWire a, traceWire b )
+
+
+traceWirePositionsWithSteps : ( Wire, Wire ) -> ( Dict Pos Int, Dict Pos Int )
+traceWirePositionsWithSteps ( a, b ) =
+    ( traceWireWithSteps a, traceWireWithSteps b )
+
+
+traceWireWithSteps : Wire -> Dict Pos Int
+traceWireWithSteps moves =
+    let
+        ( _, _, path ) =
+            List.foldl traceMoveWithSteps ( 0, ( 0, 0 ), Dict.empty ) moves
+    in
+    path
+
+
+takeOneStep : Direction -> Pos -> Pos
+takeOneStep dir ( x, y ) =
+    case dir of
+        Up ->
+            ( x, y - 1 )
+
+        Down ->
+            ( x, y + 1 )
+
+        Left ->
+            ( x - 1, y )
+
+        Right ->
+            ( x + 1, y )
 
         _ ->
-            []
+            ( x, y )
 
 
-part2 : Solver
-part2 input =
-    "not implemented"
+traceMoveWithSteps : Move -> ( Int, Pos, Dict Pos Int ) -> ( Int, Pos, Dict Pos Int )
+traceMoveWithSteps ( dir, steps ) ( step, pos, path ) =
+    if steps == 0 then
+        ( step, pos, path )
+
+    else
+        let
+            nextStep =
+                step + 1
+
+            nextPos =
+                takeOneStep dir pos
+
+            nextPath =
+                if Dict.member nextPos path then
+                    path
+
+                else
+                    Dict.insert nextPos nextStep path
+        in
+        traceMoveWithSteps ( dir, steps - 1 ) ( nextStep, nextPos, nextPath )
+
+
+findIntersectionsWithSteps : ( Dict Pos Int, Dict Pos Int ) -> Dict Pos Int
+findIntersectionsWithSteps ( a, b ) =
+    let
+        ignore : Pos -> Int -> Dict Pos Int -> Dict Pos Int
+        ignore pos d result =
+            result
+
+        sumDistance : Pos -> Int -> Int -> Dict Pos Int -> Dict Pos Int
+        sumDistance pos distA distB result =
+            Dict.insert pos (distA + distB) result
+    in
+    Dict.merge ignore sumDistance ignore a b Dict.empty
+
+
+fewestSteps : Dict Pos Int -> Int
+fewestSteps steps =
+    Dict.values steps
+        |> List.filter (\x -> x > 0)
+        |> List.sort
+        |> List.head
+        |> Maybe.withDefault -99
 
 
 solution : Solution
