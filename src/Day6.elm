@@ -44,8 +44,8 @@ countOrbits orbitMap =
         count : Object -> Int
         count obj =
             case Dict.get obj orbitMap of
-                Just around ->
-                    1 + count around
+                Just orbiting ->
+                    1 + count orbiting
 
                 Nothing ->
                     0
@@ -68,8 +68,8 @@ parse input =
 parseLine : String -> Orbit
 parseLine line =
     case String.split ")" line of
-        [ a, b ] ->
-            ( b, a )
+        [ orbited, orbiting ] ->
+            ( orbiting, orbited )
 
         _ ->
             ( "ERROR", "ERROR" )
