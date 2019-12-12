@@ -1,6 +1,6 @@
 module Day5 exposing (solution)
 
-import Dict exposing (Dict)
+import Dict
 import Types exposing (Solution, Solver)
 
 
@@ -47,26 +47,30 @@ type alias Computer =
     }
 
 
+type Opcode
+    = Add Arg Arg Address
+    | Mult Arg Arg Address
+    | Input Address
+    | Output Arg
+    | JumpIfTrue Arg Arg
+    | JumpIfFalse Arg Arg
+    | LessThan Arg Arg Address
+    | Equals Arg Arg Address
+    | Halt
+    | Unknown
+
+
+type Address
+    = Address Int
+
+
 type Arg
-    = Position Int
+    = Position Address
     | Immediate Int
 
 
 type alias Memory =
     Dict.Dict Int Int
-
-
-type Opcode
-    = Add Arg Arg Int
-    | Mult Arg Arg Int
-    | Input Int
-    | Output Arg
-    | JumpIfTrue Arg Arg
-    | JumpIfFalse Arg Arg
-    | LessThan Arg Arg Int
-    | Equals Arg Arg Int
-    | Halt
-    | Unknown
 
 
 computer : Computer
@@ -92,13 +96,13 @@ load program comp =
     { comp | mem = mem }
 
 
-get : Int -> Computer -> Int
-get pos comp =
+get : Address -> Computer -> Int
+get (Address pos) comp =
     Dict.get pos comp.mem |> Maybe.withDefault -1
 
 
-set : Int -> Int -> Computer -> Computer
-set pos value comp =
+set : Address -> Int -> Computer -> Computer
+set (Address pos) value comp =
     { comp | mem = Dict.insert pos value comp.mem }
 
 
@@ -106,13 +110,13 @@ nextOp : Computer -> Opcode
 nextOp comp =
     let
         opcode =
-            get comp.pos comp
+            get (Address comp.pos) comp
 
         mode n =
             (opcode // 100) // 10 ^ n |> modBy 10
 
         param n =
-            get (comp.pos + n + 1) comp
+            get (Address (comp.pos + n + 1)) comp
 
         arg : Int -> Arg
         arg n =
@@ -120,17 +124,17 @@ nextOp comp =
                 Immediate (param n)
 
             else
-                Position (param n)
+                Position (Address (param n))
     in
     case opcode |> modBy 100 of
         1 ->
-            Add (arg 0) (arg 1) (param 2)
+            Add (arg 0) (arg 1) (Address (param 2))
 
         2 ->
-            Mult (arg 0) (arg 1) (param 2)
+            Mult (arg 0) (arg 1) (Address (param 2))
 
         3 ->
-            Input (param 0)
+            Input (Address (param 0))
 
         4 ->
             Output (arg 0)
@@ -142,10 +146,10 @@ nextOp comp =
             JumpIfFalse (arg 0) (arg 1)
 
         7 ->
-            LessThan (arg 0) (arg 1) (param 2)
+            LessThan (arg 0) (arg 1) (Address (param 2))
 
         8 ->
-            Equals (arg 0) (arg 1) (param 2)
+            Equals (arg 0) (arg 1) (Address (param 2))
 
         99 ->
             Halt
@@ -227,10 +231,3 @@ run comp =
 
         Unknown ->
             comp
-
-
-runWithResult : Computer -> Int
-runWithResult comp =
-    comp
-        |> run
-        |> get 0
