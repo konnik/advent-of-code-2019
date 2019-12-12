@@ -11,19 +11,24 @@ solution =
 
 part1 : Solver
 part1 input =
-    loadProgram input
-        |> init
+    computer
+        |> load input
+        |> withInput 1
         |> run
-        |> lastOutput
+        |> output
 
 
 part2 : Solver
 part2 input =
-    "not implemented"
+    computer
+        |> load input
+        |> withInput 5
+        |> run
+        |> output
 
 
-lastOutput : Computer -> String
-lastOutput comp =
+output : Computer -> String
+output comp =
     comp.output
         |> List.head
         |> Maybe.map String.fromInt
@@ -56,22 +61,35 @@ type Opcode
     | Mult Arg Arg Int
     | Input Int
     | Output Arg
+    | JumpIfTrue Arg Arg
+    | JumpIfFalse Arg Arg
+    | LessThan Arg Arg Int
+    | Equals Arg Arg Int
     | Halt
     | Unknown
 
 
-init : Memory -> Computer
-init mem =
-    { pos = 0, input = 1, output = [], mem = mem }
+computer : Computer
+computer =
+    { pos = 0, input = 0, output = [], mem = Dict.empty }
 
 
-loadProgram : String -> Memory
-loadProgram input =
-    input
-        |> String.split ","
-        |> List.map (String.toInt >> Maybe.withDefault 0)
-        |> List.indexedMap Tuple.pair
-        |> Dict.fromList
+withInput : Int -> Computer -> Computer
+withInput id comp =
+    { comp | input = id }
+
+
+load : String -> Computer -> Computer
+load program comp =
+    let
+        mem =
+            program
+                |> String.split ","
+                |> List.map (String.toInt >> Maybe.withDefault 0)
+                |> List.indexedMap Tuple.pair
+                |> Dict.fromList
+    in
+    { comp | mem = mem }
 
 
 get : Int -> Computer -> Int
@@ -117,6 +135,18 @@ nextOp comp =
         4 ->
             Output (arg 0)
 
+        5 ->
+            JumpIfTrue (arg 0) (arg 1)
+
+        6 ->
+            JumpIfFalse (arg 0) (arg 1)
+
+        7 ->
+            LessThan (arg 0) (arg 1) (param 2)
+
+        8 ->
+            Equals (arg 0) (arg 1) (param 2)
+
         99 ->
             Halt
 
@@ -129,8 +159,13 @@ incPos inc comp =
     { comp | pos = comp.pos + inc }
 
 
-output : Int -> Computer -> Computer
-output value comp =
+setPos : Int -> Computer -> Computer
+setPos pos comp =
+    { comp | pos = pos }
+
+
+setOutput : Int -> Computer -> Computer
+setOutput value comp =
     { comp | output = value :: comp.output }
 
 
@@ -157,7 +192,35 @@ run comp =
             comp |> set dst comp.input |> incPos 2 |> run
 
         Output a ->
-            comp |> output (value a) |> incPos 2 |> run
+            comp |> setOutput (value a) |> incPos 2 |> run
+
+        JumpIfTrue a dst ->
+            if value a /= 0 then
+                comp |> setPos (value dst) |> run
+
+            else
+                comp |> incPos 3 |> run
+
+        JumpIfFalse a dst ->
+            if value a == 0 then
+                comp |> setPos (value dst) |> run
+
+            else
+                comp |> incPos 3 |> run
+
+        LessThan a b dst ->
+            if value a < value b then
+                comp |> set dst 1 |> incPos 4 |> run
+
+            else
+                comp |> set dst 0 |> incPos 4 |> run
+
+        Equals a b dst ->
+            if value a == value b then
+                comp |> set dst 1 |> incPos 4 |> run
+
+            else
+                comp |> set dst 0 |> incPos 4 |> run
 
         Halt ->
             comp
