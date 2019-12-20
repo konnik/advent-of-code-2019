@@ -10,28 +10,24 @@ solution =
 
 
 part1 : Solver
-part1 input =
-    let
-        program =
-            computer |> load input
-    in
-    permutations [ 0, 1, 2, 3, 4 ]
-        |> List.map (initAmplifiers program)
-        |> List.map (runOnce 0)
-        |> List.maximum
-        |> Maybe.withDefault -1
-        |> String.fromInt
+part1 =
+    solve [ 0, 1, 2, 3, 4 ] runOnce
 
 
 part2 : Solver
-part2 input =
+part2 =
+    solve [ 5, 6, 7, 8, 9 ] runLoop
+
+
+solve : List Int -> (Int -> List Computer -> Int) -> String -> String
+solve phaseNumbers runFunc input =
     let
         program =
             computer |> load input
     in
-    permutations [ 5, 6, 7, 8, 9 ]
+    permutations phaseNumbers
         |> List.map (initAmplifiers program)
-        |> List.map (runLoop 0)
+        |> List.map (runFunc 0)
         |> List.maximum
         |> Maybe.withDefault -1
         |> String.fromInt
