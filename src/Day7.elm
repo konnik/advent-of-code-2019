@@ -1,6 +1,6 @@
-module Day7 exposing (perm, solution)
+module Day7 exposing (solution)
 
-import Dict exposing (Dict)
+import Dict
 import Types exposing (Solution, Solver)
 
 
@@ -12,11 +12,12 @@ solution =
 part1 : Solver
 part1 input =
     let
-        initialComputer =
+        program =
             computer |> load input
     in
-    perm [ 0, 1, 2, 3, 4 ]
-        |> List.map (runAmplifier 0 initialComputer)
+    permutations [ 0, 1, 2, 3, 4 ]
+        |> List.map (initAmplifiers program)
+        |> List.map (runOnce 0)
         |> List.maximum
         |> Maybe.withDefault -1
         |> String.fromInt
@@ -24,40 +25,53 @@ part1 input =
 
 part2 : Solver
 part2 input =
-    "not implemented"
+    let
+        program =
+            computer |> load input
+    in
+    permutations [ 5, 6, 7, 8, 9 ]
+        |> List.map (initAmplifiers program)
+        |> List.map (runLoop 0)
+        |> List.maximum
+        |> Maybe.withDefault -1
+        |> String.fromInt
 
 
-type alias PhaseSetting =
-    List Int
+initAmplifiers : Computer -> List Int -> List Computer
+initAmplifiers program phases =
+    List.map (\phase -> program |> setIn phase) phases
 
 
-perm : List a -> List (List a)
-perm input =
-    case input of
+runLoop : Int -> List Computer -> Int
+runLoop inputVal computers =
+    if List.all .halted computers then
+        inputVal
+
+    else
+        case computers of
+            comp :: rest ->
+                let
+                    ( next, outVal ) =
+                        comp |> setIn inputVal |> run |> getOut
+                in
+                runLoop outVal (rest ++ [ next ])
+
+            _ ->
+                -666
+
+
+runOnce : Int -> List Computer -> Int
+runOnce inputVal computers =
+    case computers of
         [] ->
-            [ [] ]
+            inputVal
 
-        _ ->
+        comp :: rest ->
             let
-                delete : a -> List a -> List a
-                delete a =
-                    List.filter (\b -> a /= b)
-
-                combine : a -> List a -> List a
-                combine y ys =
-                    y :: ys
+                ( _, outVal ) =
+                    comp |> setIn inputVal |> run |> getOut
             in
-            List.concatMap (\y -> List.map (combine y) (perm (delete y input))) input
-
-
-runAmplifier : Int -> Computer -> PhaseSetting -> Int
-runAmplifier input comp phases =
-    case phases of
-        [] ->
-            input
-
-        phase :: restPhases ->
-            runAmplifier (run [ phase, input ] comp) comp restPhases
+            runOnce outVal rest
 
 
 
@@ -67,6 +81,9 @@ runAmplifier input comp phases =
 type alias Computer =
     { pos : Int
     , mem : Memory
+    , halted : Bool
+    , input : List Int
+    , output : List Int
     }
 
 
@@ -100,11 +117,14 @@ computer : Computer
 computer =
     { pos = 0
     , mem = Dict.empty
+    , halted = False
+    , input = []
+    , output = []
     }
 
 
-run : List Int -> Computer -> Int
-run inputs comp =
+run : Computer -> Computer
+run comp =
     let
         argValue : Arg -> Int
         argValue arg =
@@ -116,56 +136,81 @@ run inputs comp =
                     v
     in
     case nextOp comp of
+        Input dst ->
+            case comp.input of
+                inputVal :: rest ->
+                    { comp | input = rest } |> write dst inputVal |> incPos 2 |> run
+
+                [] ->
+                    comp
+
+        Output a ->
+            comp |> setOut (argValue a) |> incPos 2
+
         Add a b dst ->
-            comp |> write dst (argValue a + argValue b) |> incPos 4 |> run inputs
+            comp |> write dst (argValue a + argValue b) |> incPos 4 |> run
 
         Mult a b dst ->
-            comp |> write dst (argValue a * argValue b) |> incPos 4 |> run inputs
-
-        Input dst ->
-            case inputs of
-                input :: rest ->
-                    comp |> write dst input |> incPos 2 |> run rest
-
-                _ ->
-                    -9999
-
-        Output output ->
-            argValue output
+            comp |> write dst (argValue a * argValue b) |> incPos 4 |> run
 
         JumpIfTrue a dst ->
             if argValue a /= 0 then
-                comp |> setPos (argValue dst) |> run inputs
+                comp |> setPos (argValue dst) |> run
 
             else
-                comp |> incPos 3 |> run inputs
+                comp |> incPos 3 |> run
 
         JumpIfFalse a dst ->
             if argValue a == 0 then
-                comp |> setPos (argValue dst) |> run inputs
+                comp |> setPos (argValue dst) |> run
 
             else
-                comp |> incPos 3 |> run inputs
+                comp |> incPos 3 |> run
 
         LessThan a b dst ->
             if argValue a < argValue b then
-                comp |> write dst 1 |> incPos 4 |> run inputs
+                comp |> write dst 1 |> incPos 4 |> run
 
             else
-                comp |> write dst 0 |> incPos 4 |> run inputs
+                comp |> write dst 0 |> incPos 4 |> run
 
         Equals a b dst ->
             if argValue a == argValue b then
-                comp |> write dst 1 |> incPos 4 |> run inputs
+                comp |> write dst 1 |> incPos 4 |> run
 
             else
-                comp |> write dst 0 |> incPos 4 |> run inputs
+                comp |> write dst 0 |> incPos 4 |> run
 
         Halt ->
-            List.head inputs |> Maybe.withDefault -77
+            comp |> halt
 
         Unknown ->
-            -999
+            comp |> halt
+
+
+setIn : Int -> Computer -> Computer
+setIn value comp =
+    { comp | input = comp.input ++ [ value ] }
+
+
+setOut : Int -> Computer -> Computer
+setOut value comp =
+    { comp | output = value :: comp.output }
+
+
+getOut : Computer -> ( Computer, Int )
+getOut comp =
+    case comp.output of
+        outValue :: _ ->
+            ( comp, outValue )
+
+        _ ->
+            ( comp, -77 )
+
+
+halt : Computer -> Computer
+halt comp =
+    { comp | halted = True }
 
 
 read : Address -> Computer -> Int
@@ -251,3 +296,26 @@ load program comp =
                 |> Dict.fromList
     in
     { comp | mem = mem }
+
+
+
+-- UTILS
+
+
+permutations : List a -> List (List a)
+permutations input =
+    case input of
+        [] ->
+            [ [] ]
+
+        _ ->
+            let
+                delete : a -> List a -> List a
+                delete a =
+                    List.filter (\b -> a /= b)
+
+                combine : a -> List a -> List a
+                combine y ys =
+                    y :: ys
+            in
+            List.concatMap (\y -> List.map (combine y) (permutations (delete y input))) input
