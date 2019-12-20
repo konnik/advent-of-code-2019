@@ -4,7 +4,7 @@ Once again I'm trying to solve Advent of Code in Elm.
 
 ## Puzzle inputs
 
-Your puzzle inputs should be placed as files in the folder `./static/input/`. On file per day named <day>.txt.
+Your puzzle inputs should be placed as files in the folder `./static/input/`. On file per day named `<day>.txt`.
 
 Example:
 
