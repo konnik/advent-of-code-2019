@@ -1,4 +1,4 @@
-# Advent of Code 2019 i Elm
+# Advent of Code 2019 in Elm
 
 Once again I'm trying to solve Advent of Code in Elm.
 
