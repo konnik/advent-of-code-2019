@@ -18,18 +18,16 @@ solution =
 
 part1 : Solver
 part1 input =
-    "not implemented"
+    parseInput input
+        |> List.sortBy (count 0)
+        |> List.head
+        |> Maybe.map (\l -> count 1 l * count 2 l)
+        |> Debug.toString
 
 
 part2 : Solver
 part2 input =
-    parseInput input
-        |> List.map (\l -> ( count 0 l, l ))
-        |> List.sortBy Tuple.first
-        |> List.map Tuple.second
-        |> List.head
-        |> Maybe.map (\l -> count 1 l * count 2 l)
-        |> Debug.toString
+    "not implemented"
 
 
 type alias Layer =
