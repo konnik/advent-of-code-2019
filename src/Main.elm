@@ -131,12 +131,14 @@ view model =
 
 mainView : Model -> Element Msg
 mainView model =
-    column [ spacing 20 ]
+    column [ spacing 20, Font.family [ Font.monospace ] ]
         [ header
         , navigation
         , text <| "Solution for day " ++ String.fromInt model.day
-        , text <| "Part 1: " ++ model.answer1
-        , text <| "Part 2: " ++ model.answer2
+        , text <| "Part 1: "
+        , text <| model.answer1
+        , text <| "Part 2: "
+        , text <| model.answer2
         , text "Input: "
         , text model.input
         ]
